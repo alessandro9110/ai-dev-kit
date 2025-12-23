@@ -11,6 +11,7 @@ sys.path.insert(  # noqa: E402
     0, os.path.join(os.path.dirname(__file__), "../../../databricks-mcp-core")
 )
 
+from pydantic import ValidationError
 from databricks_mcp_core.synthetic_data_generation import (  # noqa: E402
     get_template,
     generate_and_upload_on_cluster
@@ -18,26 +19,36 @@ from databricks_mcp_core.synthetic_data_generation import (  # noqa: E402
 from databricks_mcp_core.spark_declarative_pipelines import (  # noqa: E402
     workspace_files
 )
+from ..models.base import MCPValidationError
+from ..models.synthetic_data import (
+    GetSynthDataTemplateInput,
+    WriteSynthDataScriptInput,
+    GenerateAndUploadSynthDataInput
+)
 
 
 def get_synth_data_template_tool(arguments: dict) -> dict:
     """MCP tool: Get generate_data.py template"""
     try:
+        input = GetSynthDataTemplateInput(**arguments)
+
         result = get_template(
-            template_type=arguments.get("template_type", "story"),
-            template_root=arguments.get("template_root")
+            template_type=input.template_type,
+            template_root=input.template_root
         )
-        template_type = arguments.get('template_type', 'story')
+
         return {
             "content": [{
                 "type": "text",
                 "text": (
-                    f"📄 Template: {template_type}\n\n"
+                    f"📄 Template: {input.template_type}\n\n"
                     f"```python\n{result['code']}\n```\n\n"
                     f"Source: {result['source_path']}"
                 )
             }]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{"type": "text", "text": f"❌ Error: {str(e)}"}],
@@ -48,24 +59,27 @@ def get_synth_data_template_tool(arguments: dict) -> dict:
 def write_synth_data_script_to_workspace_tool(arguments: dict) -> dict:
     """MCP tool: Write generate_data.py script to Databricks workspace"""
     try:
+        input = WriteSynthDataScriptInput(**arguments)
+
         workspace_files.write_file(
-            arguments["workspace_path"],
-            arguments["code"],
+            input.workspace_path,
+            input.code,
             language="PYTHON",
-            overwrite=arguments.get("overwrite", True)
+            overwrite=input.overwrite
         )
-        workspace_path = arguments['workspace_path']
-        overwrite = arguments.get('overwrite', True)
+
         return {
             "content": [{
                 "type": "text",
                 "text": (
                     "✅ Script written to workspace\n\n"
-                    f"Path: {workspace_path}\n"
-                    f"Overwrite: {overwrite}"
+                    f"Path: {input.workspace_path}\n"
+                    f"Overwrite: {input.overwrite}"
                 )
             }]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{"type": "text", "text": f"❌ Error: {str(e)}"}],
@@ -76,26 +90,27 @@ def write_synth_data_script_to_workspace_tool(arguments: dict) -> dict:
 def generate_and_upload_synth_data_tool(arguments: dict) -> dict:
     """MCP tool: Execute generate_data.py on cluster and write to Volume"""
     try:
+        input = GenerateAndUploadSynthDataInput(**arguments)
+
         result = generate_and_upload_on_cluster(
-            arguments["cluster_id"],
-            arguments["workspace_path"],
-            arguments["catalog"],
-            arguments["schema"],
-            arguments["volume"],
-            arguments.get("scale_factor", 1.0),
-            arguments.get("remote_subfolder", "incoming_data"),
-            arguments.get("clean", True),
-            arguments.get("timeout_sec", 600)
+            input.cluster_id,
+            input.workspace_path,
+            input.catalog,
+            input.schema,
+            input.volume,
+            input.scale_factor,
+            input.remote_subfolder,
+            input.clean,
+            input.timeout_sec
         )
 
         status = "✅" if result["success"] else "❌"
-        cluster_id = arguments['cluster_id']
         volume_path = result['volume_path']
         duration = result['duration_sec']
 
         text = (
             f"{status} Synthetic Data Generation\n\n"
-            f"Cluster: {cluster_id}\n"
+            f"Cluster: {input.cluster_id}\n"
             f"Volume: {volume_path}\n"
             f"Duration: {duration:.2f}s\n\n"
         )
@@ -111,6 +126,8 @@ def generate_and_upload_synth_data_tool(arguments: dict) -> dict:
             "content": [{"type": "text", "text": text}],
             "isError": not result["success"]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{"type": "text", "text": f"❌ Error: {str(e)}"}],

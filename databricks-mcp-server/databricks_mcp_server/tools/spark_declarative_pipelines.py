@@ -2,11 +2,30 @@
 MCP tool wrappers for Spark Declarative Pipelines operations.
 """
 from typing import Dict, Any
+from pydantic import ValidationError
 from databricks_mcp_core.spark_declarative_pipelines import (
     pipelines, workspace_files
 )
-from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
 import json
+
+from ..models.base import MCPValidationError
+from ..models.pipelines import (
+    CreatePipelineInput,
+    GetPipelineInput,
+    UpdatePipelineInput,
+    DeletePipelineInput,
+    StartPipelineUpdateInput,
+    ValidatePipelineInput,
+    GetPipelineUpdateStatusInput,
+    StopPipelineInput,
+    GetPipelineEventsInput,
+    ListPipelineFilesInput,
+    GetPipelineFileStatusInput,
+    ReadPipelineFileInput,
+    WritePipelineFileInput,
+    CreatePipelineDirectoryInput,
+    DeletePipelinePathInput
+)
 
 
 # Pipeline Management Tools
@@ -14,26 +33,15 @@ import json
 def create_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Create a new Spark Declarative Pipeline."""
     try:
-        # Convert library dicts to PipelineLibrary objects
-        libraries_data = arguments["libraries"]
-        libraries = []
-        for lib_dict in libraries_data:
-            if "notebook" in lib_dict:
-                path = lib_dict["notebook"]["path"]
-                libraries.append(
-                    PipelineLibrary(notebook=NotebookLibrary(path=path))
-                )
-            # Add other library types as needed
+        input = CreatePipelineInput(**arguments)
 
         result = pipelines.create_pipeline(
-            name=arguments["name"],
-            storage=arguments["storage"],
-            target=arguments["target"],
-            libraries=libraries,
-            clusters=arguments.get("clusters"),
-            configuration=arguments.get("configuration"),
-            continuous=arguments.get("continuous", False),
-            serverless=arguments.get("serverless")
+            name=input.name,
+            root_path=input.root_path,
+            catalog=input.catalog,
+            schema=input.schema,
+            workspace_notebook_paths=input.workspace_notebook_paths,
+            serverless=input.serverless
         )
 
         pipeline_id = result.pipeline_id
@@ -41,15 +49,19 @@ def create_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
             "content": [
                 {
                     "type": "text",
-                    "text": f"✅ Pipeline created successfully!\n\n"
-                           f"Pipeline ID: {pipeline_id}\n"
-                           f"Name: {arguments['name']}\n"
-                           f"Target: {arguments['target']}\n"
-                           f"Storage: {arguments['storage']}\n"
-                           f"Continuous: {arguments.get('continuous', False)}"
+                    "text": (
+                        f"✅ Pipeline created successfully!\n\n"
+                        f"Pipeline ID: {pipeline_id}\n"
+                        f"Name: {input.name}\n"
+                        f"Target: {input.catalog}.{input.schema}\n"
+                        f"Storage: {input.root_path}\n"
+                        f"Serverless: {input.serverless}"
+                    )
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -63,7 +75,9 @@ def create_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def get_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Get pipeline details and configuration."""
     try:
-        result = pipelines.get_pipeline(arguments["pipeline_id"])
+        input = GetPipelineInput(**arguments)
+
+        result = pipelines.get_pipeline(input.pipeline_id)
 
         name = result.name if result.name else "unknown"
         state = result.state if result.state else "unknown"
@@ -77,11 +91,13 @@ def get_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
                            f"Name: {name}\n"
                            f"State: {state}\n"
                            f"Target: {target}\n"
-                           f"Pipeline ID: {arguments['pipeline_id']}\n\n"
+                           f"Pipeline ID: {input.pipeline_id}\n\n"
                            f"Full configuration:\n{json.dumps(result.as_dict(), indent=2)}"
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -95,39 +111,31 @@ def get_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def update_pipeline_config_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Update pipeline configuration (not code files)."""
     try:
-        # Convert libraries if provided
-        libraries = None
-        if arguments.get("libraries"):
-            libraries_data = arguments["libraries"]
-            libraries = []
-            for lib_dict in libraries_data:
-                if "notebook" in lib_dict:
-                    path = lib_dict["notebook"]["path"]
-                    libraries.append(
-                        PipelineLibrary(notebook=NotebookLibrary(path=path))
-                    )
+        input = UpdatePipelineInput(**arguments)
 
         pipelines.update_pipeline(
-            pipeline_id=arguments["pipeline_id"],
-            name=arguments.get("name"),
-            storage=arguments.get("storage"),
-            target=arguments.get("target"),
-            libraries=libraries,
-            clusters=arguments.get("clusters"),
-            configuration=arguments.get("configuration"),
-            continuous=arguments.get("continuous"),
-            serverless=arguments.get("serverless")
+            pipeline_id=input.pipeline_id,
+            name=input.name,
+            root_path=input.root_path,
+            catalog=input.catalog,
+            schema=input.schema,
+            workspace_notebook_paths=input.workspace_notebook_paths,
+            serverless=input.serverless
         )
 
         return {
             "content": [
                 {
                     "type": "text",
-                    "text": "✅ Pipeline configuration updated successfully!\n\n"
-                           f"Pipeline ID: {arguments['pipeline_id']}"
+                    "text": (
+                        "✅ Pipeline configuration updated successfully!\n\n"
+                        f"Pipeline ID: {input.pipeline_id}"
+                    )
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -141,17 +149,21 @@ def update_pipeline_config_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def delete_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Delete a pipeline."""
     try:
-        pipelines.delete_pipeline(arguments["pipeline_id"])
+        input = DeletePipelineInput(**arguments)
+
+        pipelines.delete_pipeline(input.pipeline_id)
 
         return {
             "content": [
                 {
                     "type": "text",
                     "text": "✅ Pipeline deleted successfully!\n\n"
-                           f"Pipeline ID: {arguments['pipeline_id']}"
+                           f"Pipeline ID: {input.pipeline_id}"
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -165,11 +177,13 @@ def delete_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def start_pipeline_update_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Start a pipeline update (full or incremental refresh)."""
     try:
+        input = StartPipelineUpdateInput(**arguments)
+
         update_id = pipelines.start_update(
-            pipeline_id=arguments["pipeline_id"],
-            refresh_selection=arguments.get("refresh_selection"),
-            full_refresh=arguments.get("full_refresh", False),
-            full_refresh_selection=arguments.get("full_refresh_selection"),
+            pipeline_id=input.pipeline_id,
+            refresh_selection=input.refresh_selection,
+            full_refresh=input.full_refresh,
+            full_refresh_selection=input.full_refresh_selection,
             validate_only=False
         )
 
@@ -178,13 +192,15 @@ def start_pipeline_update_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
                 {
                     "type": "text",
                     "text": f"✅ Pipeline update started!\n\n"
-                           f"Pipeline ID: {arguments['pipeline_id']}\n"
+                           f"Pipeline ID: {input.pipeline_id}\n"
                            f"Update ID: {update_id}\n"
-                           f"Full Refresh: {arguments.get('full_refresh', False)}\n\n"
+                           f"Full Refresh: {input.full_refresh}\n\n"
                            f"Use get_pipeline_update_status to poll."
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -198,11 +214,13 @@ def start_pipeline_update_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def validate_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Perform dry-run validation without updating datasets."""
     try:
+        input = ValidatePipelineInput(**arguments)
+
         update_id = pipelines.start_update(
-            pipeline_id=arguments["pipeline_id"],
-            refresh_selection=arguments.get("refresh_selection"),
-            full_refresh=arguments.get("full_refresh", False),
-            full_refresh_selection=arguments.get("full_refresh_selection"),
+            pipeline_id=input.pipeline_id,
+            refresh_selection=input.refresh_selection,
+            full_refresh=input.full_refresh,
+            full_refresh_selection=input.full_refresh_selection,
             validate_only=True
         )
 
@@ -211,12 +229,14 @@ def validate_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
                 {
                     "type": "text",
                     "text": "✅ Pipeline validation started (dry-run mode)!\n\n"
-                           f"Pipeline ID: {arguments['pipeline_id']}\n"
+                           f"Pipeline ID: {input.pipeline_id}\n"
                            f"Update ID: {update_id}\n\n"
                            f"Use get_pipeline_update_status to check results."
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -230,9 +250,11 @@ def validate_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def get_pipeline_update_status_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Get pipeline update status and results."""
     try:
+        input = GetPipelineUpdateStatusInput(**arguments)
+
         result = pipelines.get_update(
-            arguments["pipeline_id"],
-            arguments["update_id"]
+            input.pipeline_id,
+            input.update_id
         )
 
         state = result.update.state if result.update else "unknown"
@@ -252,12 +274,14 @@ def get_pipeline_update_status_tool(arguments: Dict[str, Any]) -> Dict[str, Any]
                     "type": "text",
                     "text": f"{emoji} Pipeline Update Status\n\n"
                            f"State: {state}\n"
-                           f"Pipeline ID: {arguments['pipeline_id']}\n"
-                           f"Update ID: {arguments['update_id']}\n\n"
+                           f"Pipeline ID: {input.pipeline_id}\n"
+                           f"Update ID: {input.update_id}\n\n"
                            f"Full status:\n{json.dumps(result.as_dict(), indent=2)}"
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -271,17 +295,21 @@ def get_pipeline_update_status_tool(arguments: Dict[str, Any]) -> Dict[str, Any]
 def stop_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Stop a running pipeline."""
     try:
-        pipelines.stop_pipeline(arguments["pipeline_id"])
+        input = StopPipelineInput(**arguments)
+
+        pipelines.stop_pipeline(input.pipeline_id)
 
         return {
             "content": [
                 {
                     "type": "text",
                     "text": "✅ Pipeline stop request sent!\n\n"
-                           f"Pipeline ID: {arguments['pipeline_id']}"
+                           f"Pipeline ID: {input.pipeline_id}"
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -295,9 +323,11 @@ def stop_pipeline_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def get_pipeline_events_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Get pipeline events, issues, and error messages."""
     try:
+        input = GetPipelineEventsInput(**arguments)
+
         events = pipelines.get_pipeline_events(
-            arguments["pipeline_id"],
-            arguments.get("max_results", 100)
+            input.pipeline_id,
+            input.max_results
         )
 
         event_count = len(events)
@@ -315,13 +345,15 @@ def get_pipeline_events_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
                 {
                     "type": "text",
                     "text": f"📋 Pipeline Events\n\n"
-                           f"Pipeline ID: {arguments['pipeline_id']}\n"
+                           f"Pipeline ID: {input.pipeline_id}\n"
                            f"Total Events: {event_count}\n"
                            f"Error Events: {error_count}\n\n"
                            f"Events:\n{json.dumps(events_dict, indent=2)}"
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -337,14 +369,16 @@ def get_pipeline_events_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def list_pipeline_files_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """List files in pipeline workspace directory."""
     try:
-        files = workspace_files.list_files(arguments["path"])
+        input = ListPipelineFilesInput(**arguments)
+
+        files = workspace_files.list_files(input.path)
 
         file_count = len(files)
         return {
             "content": [
                 {
                     "type": "text",
-                    "text": f"📁 Files in {arguments['path']}\n\n"
+                    "text": f"📁 Files in {input.path}\n\n"
                            f"Total: {file_count}\n\n"
                            + "\n".join(
                                f"- {f.path} ({f.object_type})"
@@ -353,6 +387,8 @@ def list_pipeline_files_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -366,7 +402,9 @@ def list_pipeline_files_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def get_pipeline_file_status_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Get pipeline file metadata."""
     try:
-        status = workspace_files.get_file_status(arguments["path"])
+        input = GetPipelineFileStatusInput(**arguments)
+
+        status = workspace_files.get_file_status(input.path)
 
         return {
             "content": [
@@ -380,6 +418,8 @@ def get_pipeline_file_status_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -393,17 +433,21 @@ def get_pipeline_file_status_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def read_pipeline_file_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Read pipeline file contents."""
     try:
-        content = workspace_files.read_file(arguments["path"])
+        input = ReadPipelineFileInput(**arguments)
+
+        content = workspace_files.read_file(input.path)
 
         return {
             "content": [
                 {
                     "type": "text",
-                    "text": f"📄 File: {arguments['path']}\n\n"
+                    "text": f"📄 File: {input.path}\n\n"
                            f"```\n{content}\n```"
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -417,11 +461,13 @@ def read_pipeline_file_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def write_pipeline_file_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Write or update pipeline file."""
     try:
+        input = WritePipelineFileInput(**arguments)
+
         workspace_files.write_file(
-            path=arguments["path"],
-            content=arguments["content"],
-            language=arguments.get("language", "PYTHON"),
-            overwrite=arguments.get("overwrite", True)
+            path=input.path,
+            content=input.content,
+            language=input.language,
+            overwrite=input.overwrite
         )
 
         return {
@@ -429,11 +475,13 @@ def write_pipeline_file_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
                 {
                     "type": "text",
                     "text": f"✅ File written successfully!\n\n"
-                           f"Path: {arguments['path']}\n"
-                           f"Language: {arguments.get('language', 'PYTHON')}"
+                           f"Path: {input.path}\n"
+                           f"Language: {input.language}"
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -447,17 +495,21 @@ def write_pipeline_file_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def create_pipeline_directory_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Create pipeline workspace directory."""
     try:
-        workspace_files.create_directory(arguments["path"])
+        input = CreatePipelineDirectoryInput(**arguments)
+
+        workspace_files.create_directory(input.path)
 
         return {
             "content": [
                 {
                     "type": "text",
                     "text": f"✅ Directory created successfully!\n\n"
-                           f"Path: {arguments['path']}"
+                           f"Path: {input.path}"
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -471,9 +523,11 @@ def create_pipeline_directory_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
 def delete_pipeline_path_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
     """Delete pipeline file or directory."""
     try:
+        input = DeletePipelinePathInput(**arguments)
+
         workspace_files.delete_path(
-            arguments["path"],
-            arguments.get("recursive", False)
+            input.path,
+            input.recursive
         )
 
         return {
@@ -481,10 +535,12 @@ def delete_pipeline_path_tool(arguments: Dict[str, Any]) -> Dict[str, Any]:
                 {
                     "type": "text",
                     "text": f"✅ Path deleted successfully!\n\n"
-                           f"Path: {arguments['path']}"
+                           f"Path: {input.path}"
                 }
             ]
         }
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -520,20 +576,38 @@ def get_tool_definitions():
     return [
         {
             "name": "create_pipeline",
-            "description": "Create a new Spark Declarative Pipeline",
+            "description": "Create a new Spark Declarative Pipeline with simplified, prescriptive interface",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string"},
-                    "storage": {"type": "string"},
-                    "target": {"type": "string"},
-                    "libraries": {"type": "array"},
-                    "clusters": {"type": "array"},
-                    "configuration": {"type": "object"},
-                    "continuous": {"type": "boolean"},
-                    "serverless": {"type": "boolean"}
+                    "name": {
+                        "type": "string",
+                        "description": "Pipeline name"
+                    },
+                    "root_path": {
+                        "type": "string",
+                        "description": "Root storage location (e.g., 'dbfs:/pipelines/my_pipeline')"
+                    },
+                    "catalog": {
+                        "type": "string",
+                        "description": "Unity Catalog name"
+                    },
+                    "schema": {
+                        "type": "string",
+                        "description": "Schema name for output tables"
+                    },
+                    "workspace_notebook_paths": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of workspace notebook paths"
+                    },
+                    "serverless": {
+                        "type": "boolean",
+                        "description": "Use serverless compute",
+                        "default": True
+                    }
                 },
-                "required": ["name", "storage", "target", "libraries"]
+                "required": ["name", "root_path", "catalog", "schema", "workspace_notebook_paths"]
             }
         },
         {
@@ -549,19 +623,39 @@ def get_tool_definitions():
         },
         {
             "name": "update_pipeline_config",
-            "description": "Update pipeline configuration",
+            "description": "Update pipeline configuration with simplified interface",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "pipeline_id": {"type": "string"},
-                    "name": {"type": "string"},
-                    "storage": {"type": "string"},
-                    "target": {"type": "string"},
-                    "libraries": {"type": "array"},
-                    "clusters": {"type": "array"},
-                    "configuration": {"type": "object"},
-                    "continuous": {"type": "boolean"},
-                    "serverless": {"type": "boolean"}
+                    "pipeline_id": {
+                        "type": "string",
+                        "description": "Pipeline ID to update"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "New pipeline name"
+                    },
+                    "root_path": {
+                        "type": "string",
+                        "description": "New storage location"
+                    },
+                    "catalog": {
+                        "type": "string",
+                        "description": "New catalog name"
+                    },
+                    "schema": {
+                        "type": "string",
+                        "description": "New schema name"
+                    },
+                    "workspace_notebook_paths": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "New list of workspace notebook paths"
+                    },
+                    "serverless": {
+                        "type": "boolean",
+                        "description": "Enable/disable serverless compute"
+                    }
                 },
                 "required": ["pipeline_id"]
             }

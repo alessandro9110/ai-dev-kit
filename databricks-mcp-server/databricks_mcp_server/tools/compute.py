@@ -12,25 +12,31 @@ sys.path.insert(
 )
 
 from databricks_mcp_core.compute import execution  # noqa: E402
+from ..models.base import validate_input  # noqa: E402
+from ..models.compute import (  # noqa: E402
+    CreateContextInput,
+    ExecuteCommandWithContextInput,
+    DestroyContextInput,
+    DatabricksCommandInput
+)
 
 
-def create_context_tool(arguments: dict) -> dict:
+@validate_input(CreateContextInput)
+def create_context_tool(input: CreateContextInput) -> dict:
     """MCP tool: Create execution context"""
     try:
-        context_id = execution.create_context(
-            arguments.get("cluster_id"),
-            arguments.get("language", "python")
-        )
-        cluster_id = arguments.get('cluster_id')
-        language = arguments.get('language', 'python')
+        context_id = execution.create_context(input.cluster_id, input.language)
+
         return {
             "content": [{
                 "type": "text",
-                "text": f"Context created successfully!\n\n"
-                       f"Context ID: {context_id}\n"
-                       f"Cluster ID: {cluster_id}\n"
-                       f"Language: {language}\n\n"
-                       f"Use this context_id for subsequent commands."
+                "text": (
+                    f"Context created successfully!\n\n"
+                    f"Context ID: {context_id}\n"
+                    f"Cluster ID: {input.cluster_id}\n"
+                    f"Language: {input.language}\n\n"
+                    f"Use this context_id for subsequent commands."
+                )
             }]
         }
     except Exception as e:
@@ -43,14 +49,18 @@ def create_context_tool(arguments: dict) -> dict:
         }
 
 
-def execute_command_with_context_tool(arguments: dict) -> dict:
+@validate_input(ExecuteCommandWithContextInput)
+def execute_command_with_context_tool(
+    input: ExecuteCommandWithContextInput
+) -> dict:
     """MCP tool: Execute command with context"""
     try:
         result = execution.execute_command_with_context(
-            arguments.get("cluster_id"),
-            arguments.get("context_id"),
-            arguments.get("code")
+            input.cluster_id,
+            input.context_id,
+            input.code
         )
+
         if result.success:
             return {"content": [{"type": "text", "text": result.output}]}
         else:
@@ -68,18 +78,16 @@ def execute_command_with_context_tool(arguments: dict) -> dict:
         }
 
 
-def destroy_context_tool(arguments: dict) -> dict:
+@validate_input(DestroyContextInput)
+def destroy_context_tool(input: DestroyContextInput) -> dict:
     """MCP tool: Destroy execution context"""
     try:
-        context_id = arguments.get('context_id')
-        execution.destroy_context(
-            arguments.get("cluster_id"),
-            context_id
-        )
+        execution.destroy_context(input.cluster_id, input.context_id)
+
         return {
             "content": [{
                 "type": "text",
-                "text": f"Context {context_id} destroyed successfully!"
+                "text": f"Context {input.context_id} destroyed successfully!"
             }]
         }
     except Exception as e:
@@ -92,15 +100,17 @@ def destroy_context_tool(arguments: dict) -> dict:
         }
 
 
-def databricks_command_tool(arguments: dict) -> dict:
+@validate_input(DatabricksCommandInput)
+def databricks_command_tool(input: DatabricksCommandInput) -> dict:
     """MCP tool: Execute one-off Databricks command"""
     try:
         result = execution.execute_databricks_command(
-            arguments.get("cluster_id"),
-            arguments.get("language", "python"),
-            arguments.get("code"),
-            arguments.get("timeout", 120)
+            input.cluster_id,
+            input.language,
+            input.code,
+            input.timeout
         )
+
         if result.success:
             return {"content": [{"type": "text", "text": result.output}]}
         else:

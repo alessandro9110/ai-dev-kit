@@ -9,6 +9,7 @@ from databricks.sdk.service.pipelines import (
     CreatePipelineResponse,
     GetPipelineResponse,
     PipelineLibrary,
+    NotebookLibrary,
     PipelineCluster,
     PipelineEvent,
     GetUpdateResponse,
@@ -18,28 +19,28 @@ from databricks.sdk.service.pipelines import (
 
 def create_pipeline(
     name: str,
-    storage: str,
-    target: str,
-    libraries: List[PipelineLibrary],
-    clusters: Optional[List[PipelineCluster]] = None,
-    configuration: Optional[Dict[str, str]] = None,
-    continuous: bool = False,
-    serverless: Optional[bool] = None
+    root_path: str,
+    catalog: str,
+    schema: str,
+    workspace_notebook_paths: List[str],
+    serverless: bool = True
 ) -> CreatePipelineResponse:
     """
     Create a new Spark Declarative Pipeline.
 
+    Simplified, prescriptive interface with sensible defaults:
+    - Serverless compute by default
+    - Triggered mode (not continuous)
+    - Simple notebook path list (no complex PipelineLibrary objects)
+
     Args:
         name: Pipeline name
-        storage: Storage location for pipeline data
-        target: Target catalog.schema for output tables
-        libraries: List of PipelineLibrary objects
-                   Example: [PipelineLibrary(notebook=NotebookLibrary(
-                                path="/path/to/file.py"))]
-        clusters: Optional cluster configuration
-        configuration: Optional Spark configuration key-value pairs
-        continuous: If True, pipeline runs continuously
-        serverless: If True, uses serverless compute
+        root_path: Root storage location (e.g., "dbfs:/pipelines/my_pipeline")
+        catalog: Unity Catalog name
+        schema: Schema name for output tables
+        workspace_notebook_paths: List of workspace notebook paths
+                   Example: ["/Workspace/Users/user@example.com/notebook.py"]
+        serverless: Use serverless compute (default: True)
 
     Returns:
         CreatePipelineResponse with pipeline_id
@@ -49,14 +50,18 @@ def create_pipeline(
     """
     w = WorkspaceClient()
 
+    # Build libraries from simple notebook paths
+    libraries = [
+        PipelineLibrary(notebook=NotebookLibrary(path=path))
+        for path in workspace_notebook_paths
+    ]
+
     return w.pipelines.create(
         name=name,
-        storage=storage,
-        target=target,
+        storage=root_path,
+        target=f"{catalog}.{schema}",
         libraries=libraries,
-        clusters=clusters,
-        configuration=configuration,
-        continuous=continuous,
+        continuous=False,
         serverless=serverless
     )
 
@@ -81,26 +86,24 @@ def get_pipeline(pipeline_id: str) -> GetPipelineResponse:
 def update_pipeline(
     pipeline_id: str,
     name: Optional[str] = None,
-    storage: Optional[str] = None,
-    target: Optional[str] = None,
-    libraries: Optional[List[PipelineLibrary]] = None,
-    clusters: Optional[List[PipelineCluster]] = None,
-    configuration: Optional[Dict[str, str]] = None,
-    continuous: Optional[bool] = None,
+    root_path: Optional[str] = None,
+    catalog: Optional[str] = None,
+    schema: Optional[str] = None,
+    workspace_notebook_paths: Optional[List[str]] = None,
     serverless: Optional[bool] = None
 ) -> None:
     """
     Update pipeline configuration (not code files).
 
+    Simplified interface matching create_pipeline.
+
     Args:
         pipeline_id: Pipeline ID
         name: New pipeline name
-        storage: New storage location
-        target: New target catalog.schema
-        libraries: New library paths
-        clusters: New cluster configuration
-        configuration: New Spark configuration
-        continuous: New continuous mode setting
+        root_path: New storage location
+        catalog: New catalog name
+        schema: New schema name
+        workspace_notebook_paths: New list of notebook paths
         serverless: New serverless setting
 
     Raises:
@@ -108,17 +111,24 @@ def update_pipeline(
     """
     w = WorkspaceClient()
 
-    w.pipelines.update(
-        pipeline_id=pipeline_id,
-        name=name,
-        storage=storage,
-        target=target,
-        libraries=libraries,
-        clusters=clusters,
-        configuration=configuration,
-        continuous=continuous,
-        serverless=serverless
-    )
+    # Build kwargs conditionally
+    kwargs = {"pipeline_id": pipeline_id}
+
+    if name:
+        kwargs["name"] = name
+    if root_path:
+        kwargs["storage"] = root_path
+    if catalog and schema:
+        kwargs["target"] = f"{catalog}.{schema}"
+    if workspace_notebook_paths:
+        kwargs["libraries"] = [
+            PipelineLibrary(notebook=NotebookLibrary(path=path))
+            for path in workspace_notebook_paths
+        ]
+    if serverless is not None:
+        kwargs["serverless"] = serverless
+
+    w.pipelines.update(**kwargs)
 
 
 def delete_pipeline(pipeline_id: str) -> None:

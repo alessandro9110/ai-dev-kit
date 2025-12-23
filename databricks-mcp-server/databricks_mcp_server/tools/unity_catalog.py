@@ -11,8 +11,23 @@ sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "../../../databricks-mcp-core")
 )
 
+from pydantic import ValidationError
 from databricks_mcp_core.unity_catalog import catalogs, schemas, tables  # noqa: E402
-from databricks.sdk.service.catalog import ColumnInfo, TableType  # noqa: E402
+from ..models.base import MCPValidationError
+from ..models.common import table_type_to_sdk
+from ..models.unity_catalog import (
+    ListCatalogsInput,
+    GetCatalogInput,
+    CreateCatalogInput,
+    UpdateCatalogInput,
+    DeleteCatalogInput,
+    ListSchemasInput,
+    CreateSchemaInput,
+    UpdateSchemaInput,
+    DeleteSchemaInput,
+    ListTablesInput,
+    CreateTableInput
+)
 
 
 # === Catalog Tools ===
@@ -20,6 +35,8 @@ from databricks.sdk.service.catalog import ColumnInfo, TableType  # noqa: E402
 def list_catalogs_tool(arguments: dict) -> dict:
     """MCP tool: List all catalogs"""
     try:
+        input = ListCatalogsInput(**arguments)
+
         catalog_list = catalogs.list_catalogs()
         output = f"Found {len(catalog_list)} catalogs:\n\n"
         for catalog in catalog_list:
@@ -30,6 +47,8 @@ def list_catalogs_tool(arguments: dict) -> dict:
             if catalog.created_at:
                 output += f"   Created: {catalog.created_at}\n\n"
         return {"content": [{"type": "text", "text": output}]}
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{"type": "text", "text": f"Error: {str(e)}"}],
@@ -40,7 +59,9 @@ def list_catalogs_tool(arguments: dict) -> dict:
 def get_catalog_tool(arguments: dict) -> dict:
     """MCP tool: Get catalog details"""
     try:
-        catalog = catalogs.get_catalog(arguments.get("catalog_name"))
+        input = GetCatalogInput(**arguments)
+
+        catalog = catalogs.get_catalog(input.catalog_name)
         output = f"📚 Catalog: {catalog.name}\n"
         output += f"   Full Name: {catalog.full_name}\n"
         output += f"   Owner: {catalog.owner}\n"
@@ -52,6 +73,8 @@ def get_catalog_tool(arguments: dict) -> dict:
         if catalog.storage_location:
             output += f"   Storage Location: {catalog.storage_location}\n"
         return {"content": [{"type": "text", "text": output}]}
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{"type": "text", "text": f"Error: {str(e)}"}],
@@ -64,9 +87,10 @@ def get_catalog_tool(arguments: dict) -> dict:
 def list_schemas_tool(arguments: dict) -> dict:
     """MCP tool: List schemas in a catalog"""
     try:
-        schema_list = schemas.list_schemas(arguments.get("catalog_name"))
-        catalog_name = arguments.get("catalog_name")
-        output = f"Found {len(schema_list)} schemas in '{catalog_name}':\n\n"
+        input = ListSchemasInput(**arguments)
+
+        schema_list = schemas.list_schemas(input.catalog_name)
+        output = f"Found {len(schema_list)} schemas in '{input.catalog_name}':\n\n"
         for schema in schema_list:
             output += f"📁 {schema.name}\n"
             if schema.comment:
@@ -74,6 +98,8 @@ def list_schemas_tool(arguments: dict) -> dict:
             output += f"   Owner: {schema.owner}\n"
             output += f"   Full Name: {schema.full_name}\n\n"
         return {"content": [{"type": "text", "text": output}]}
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{"type": "text", "text": f"Error: {str(e)}"}],
@@ -107,11 +133,14 @@ def get_schema_tool(arguments: dict) -> dict:
 def create_schema_tool(arguments: dict) -> dict:
     """MCP tool: Create schema"""
     try:
+        input = CreateSchemaInput(**arguments)
+
         schema = schemas.create_schema(
-            arguments.get("catalog_name"),
-            arguments.get("schema_name"),
-            arguments.get("comment")
+            input.catalog_name,
+            input.schema_name,
+            input.comment
         )
+
         output = "✅ Schema created successfully!\n\n"
         output += f"📁 Schema: {schema.name}\n"
         output += f"   Full Name: {schema.full_name}\n"
@@ -120,6 +149,8 @@ def create_schema_tool(arguments: dict) -> dict:
         if schema.comment:
             output += f"   Comment: {schema.comment}\n"
         return {"content": [{"type": "text", "text": output}]}
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -133,17 +164,23 @@ def create_schema_tool(arguments: dict) -> dict:
 def update_schema_tool(arguments: dict) -> dict:
     """MCP tool: Update schema"""
     try:
+        input = UpdateSchemaInput(**arguments)
+
+        full_schema_name = f"{input.catalog_name}.{input.schema_name}"
         schema = schemas.update_schema(
-            arguments.get("full_schema_name"),
-            arguments.get("new_name"),
-            arguments.get("comment"),
-            arguments.get("owner")
+            full_schema_name,
+            input.new_name,
+            input.comment,
+            None  # owner not supported in input model
         )
+
         output = "✅ Schema updated successfully!\n\n"
         output += f"📁 Schema: {schema.name}\n"
         output += f"   Full Name: {schema.full_name}\n"
         output += f"   Owner: {schema.owner}\n"
         return {"content": [{"type": "text", "text": output}]}
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -157,10 +194,15 @@ def update_schema_tool(arguments: dict) -> dict:
 def delete_schema_tool(arguments: dict) -> dict:
     """MCP tool: Delete schema"""
     try:
-        full_schema_name = arguments.get("full_schema_name")
+        input = DeleteSchemaInput(**arguments)
+
+        full_schema_name = f"{input.catalog_name}.{input.schema_name}"
         schemas.delete_schema(full_schema_name)
+
         output = f"✅ Schema '{full_schema_name}' deleted successfully!"
         return {"content": [{"type": "text", "text": output}]}
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
@@ -176,14 +218,15 @@ def delete_schema_tool(arguments: dict) -> dict:
 def list_tables_tool(arguments: dict) -> dict:
     """MCP tool: List tables in a schema"""
     try:
+        input = ListTablesInput(**arguments)
+
         table_list = tables.list_tables(
-            arguments.get("catalog_name"),
-            arguments.get("schema_name")
+            input.catalog_name,
+            input.schema_name
         )
-        catalog_name = arguments.get("catalog_name")
-        schema_name = arguments.get("schema_name")
+
         output = f"Found {len(table_list)} tables in "
-        output += f"{catalog_name}.{schema_name}:\n\n"
+        output += f"{input.catalog_name}.{input.schema_name}:\n\n"
         for table in table_list:
             output += f"📊 {table.name}\n"
             output += f"   Type: {table.table_type}\n"
@@ -192,6 +235,8 @@ def list_tables_tool(arguments: dict) -> dict:
             output += f"   Owner: {table.owner}\n"
             output += f"   Full Name: {table.full_name}\n\n"
         return {"content": [{"type": "text", "text": output}]}
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{"type": "text", "text": f"Error: {str(e)}"}],
@@ -236,29 +281,22 @@ def get_table_tool(arguments: dict) -> dict:
 def create_table_tool(arguments: dict) -> dict:
     """MCP tool: Create table"""
     try:
-        # Convert column dicts to ColumnInfo objects
-        columns_data = arguments.get("columns", [])
-        columns = [
-            ColumnInfo(name=col["name"], type_name=col["type_name"])
-            for col in columns_data
-        ]
+        input = CreateTableInput(**arguments)
 
-        # Convert table_type string to enum
-        table_type_str = arguments.get("table_type", "MANAGED")
-        table_type = (
-            TableType.MANAGED if table_type_str == "MANAGED"
-            else TableType.EXTERNAL
-        )
+        # Convert Pydantic models to SDK objects
+        columns = [col.to_sdk() for col in input.columns]
+        table_type = table_type_to_sdk(input.table_type)
 
         table = tables.create_table(
-            arguments.get("catalog_name"),
-            arguments.get("schema_name"),
-            arguments.get("table_name"),
+            input.catalog_name,
+            input.schema_name,
+            input.table_name,
             columns,
             table_type,
-            arguments.get("comment"),
-            arguments.get("storage_location")
+            input.comment,
+            input.storage_location
         )
+
         output = "✅ Table created successfully!\n\n"
         output += f"📊 Table: {table.name}\n"
         output += f"   Full Name: {table.full_name}\n"
@@ -276,6 +314,8 @@ def create_table_tool(arguments: dict) -> dict:
                 output += f"     - {col.name}: {col.type_name}\n"
 
         return {"content": [{"type": "text", "text": output}]}
+    except ValidationError as e:
+        return MCPValidationError(e).to_mcp_response()
     except Exception as e:
         return {
             "content": [{
