@@ -11,7 +11,8 @@ description: "Creates, configures, and updates Databricks Lakeflow Spark Declara
 |---------|---------|
 | **Names** | SDP = Spark Declarative Pipelines = LDP = Lakeflow Declarative Pipelines = Lakeflow Pipelines (all interchangeable) |
 | **Python Import** | `from pyspark import pipelines as dp` |
-| **Primary Decorators** | `@dp.table()`, `@dp.materialized_view()` |
+| **Primary Decorators** | `@dp.table()`, `@dp.materialized_view()`, `@dp.temporary_view()` |
+| **Temporary Views** | `@dp.temporary_view()` creates in-pipeline temporary views (no catalog/schema, no cluster_by). Useful for intermediate logic before AUTO CDC or when a view needs multiple references without persistence. |
 | **Replaces** | Delta Live Tables (DLT) with `import dlt` |
 | **Based On** | Apache Spark 4.1+ (Databricks' modern data pipeline framework) |
 | **Docs** | https://docs.databricks.com/aws/en/ldp/developer/python-dev |
@@ -36,6 +37,8 @@ description: "Creates, configures, and updates Databricks Lakeflow Spark Declara
 
 **Project initialization**: Use [8-project-initialization.md](8-project-initialization.md) for setting up new pipeline projects with `databricks pipelines init`, Asset Bundles, multi-environment deployments, and language detection logic. (Keywords: databricks pipelines init, Asset Bundles, language detection, migration guides)
 
+**AUTO CDC patterns**: Use [9-auto_cdc.md](9-auto_cdc.md) for implementing Change Data Capture with AUTO CDC, including Slow Changing Dimensions (SCD Type 1 and Type 2) for tracking changes and deduplication. (Keywords: AUTO CDC, Slow Changing Dimension, SCD, SCD Type 1, SCD Type 2, change data capture, deduplication)
+
 ---
 
 ## Workflow
@@ -46,6 +49,7 @@ description: "Creates, configures, and updates Databricks Lakeflow Spark Declara
    **Creating new pipeline?** → Read [1-ingestion-patterns.md](1-ingestion-patterns.md)
    **Creating stream table?** → Read [2-streaming-patterns.md](2-streaming-patterns.md)
    **Querying SCD history tables?** → Read [3-scd-query-patterns.md](3-scd-query-patterns.md)
+   **Implementing AUTO CDC or SCD?** → Read [9-auto_cdc.md](9-auto_cdc.md)
    **Performance issues?** → Read [4-performance-tuning.md](4-performance-tuning.md)
    **Using Python API?** → Read [5-python-api.md](5-python-api.md)
    **Migrating from DLT?** → Read [6-dlt-migration.md](6-dlt-migration.md)
