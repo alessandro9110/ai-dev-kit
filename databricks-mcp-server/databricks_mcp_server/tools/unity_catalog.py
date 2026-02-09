@@ -207,18 +207,12 @@ def manage_uc_objects(
 
     elif otype == "schema":
         if action == "create":
-            result = _to_dict(
-                _create_schema(
-                    catalog_name=catalog_name, schema_name=name, comment=comment
-                )
-            )
+            result = _to_dict(_create_schema(catalog_name=catalog_name, schema_name=name, comment=comment))
             try:
                 from ..manifest import track_resource
 
                 full_schema = result.get("full_name") or f"{catalog_name}.{name}"
-                track_resource(
-                    resource_type="schema", name=full_schema, resource_id=full_schema
-                )
+                track_resource(resource_type="schema", name=full_schema, resource_id=full_schema)
             except Exception:
                 pass
             return result
@@ -254,23 +248,15 @@ def manage_uc_objects(
             try:
                 from ..manifest import track_resource
 
-                full_vol = (
-                    result.get("full_name") or f"{catalog_name}.{schema_name}.{name}"
-                )
-                track_resource(
-                    resource_type="volume", name=full_vol, resource_id=full_vol
-                )
+                full_vol = result.get("full_name") or f"{catalog_name}.{schema_name}.{name}"
+                track_resource(resource_type="volume", name=full_vol, resource_id=full_vol)
             except Exception:
                 pass
             return result
         elif action == "get":
             return _to_dict(_get_volume(full_volume_name=full_name))
         elif action == "list":
-            return {
-                "items": _to_dict_list(
-                    _list_volumes(catalog_name=catalog_name, schema_name=schema_name)
-                )
-            }
+            return {"items": _to_dict_list(_list_volumes(catalog_name=catalog_name, schema_name=schema_name))}
         elif action == "update":
             return _to_dict(
                 _update_volume(
@@ -293,11 +279,7 @@ def manage_uc_objects(
         elif action == "get":
             return _to_dict(_get_function(full_function_name=full_name))
         elif action == "list":
-            return {
-                "items": _to_dict_list(
-                    _list_functions(catalog_name=catalog_name, schema_name=schema_name)
-                )
-            }
+            return {"items": _to_dict_list(_list_functions(catalog_name=catalog_name, schema_name=schema_name))}
         elif action == "delete":
             _delete_function(full_function_name=full_name, force=force)
             return {"status": "deleted", "function": full_name}
@@ -358,17 +340,11 @@ def manage_uc_grants(
             privileges=privileges,
         )
     elif act == "get":
-        return _get_grants(
-            securable_type=securable_type, full_name=full_name, principal=principal
-        )
+        return _get_grants(securable_type=securable_type, full_name=full_name, principal=principal)
     elif act == "get_effective":
-        return _get_effective_grants(
-            securable_type=securable_type, full_name=full_name, principal=principal
-        )
+        return _get_effective_grants(securable_type=securable_type, full_name=full_name, principal=principal)
 
-    raise ValueError(
-        f"Invalid action: '{action}'. Valid: grant, revoke, get, get_effective"
-    )
+    raise ValueError(f"Invalid action: '{action}'. Valid: grant, revoke, get, get_effective")
 
 
 # =============================================================================
@@ -545,11 +521,7 @@ def manage_uc_connections(
     elif act == "list":
         return {"items": _to_dict_list(_list_connections())}
     elif act == "update":
-        return _to_dict(
-            _update_connection(
-                name=name, options=options, new_name=new_name, owner=owner
-            )
-        )
+        return _to_dict(_update_connection(name=name, options=options, new_name=new_name, owner=owner))
     elif act == "delete":
         _delete_connection(name=name)
         return {"status": "deleted", "connection": name}
@@ -733,9 +705,7 @@ def manage_uc_security_policies(
             warehouse_id=warehouse_id,
         )
     elif act == "drop_column_mask":
-        return _drop_column_mask(
-            table_name=table_name, column_name=column_name, warehouse_id=warehouse_id
-        )
+        return _drop_column_mask(table_name=table_name, column_name=column_name, warehouse_id=warehouse_id)
     elif act == "create_security_function":
         return _create_security_function(
             function_name=function_name,
@@ -876,17 +846,11 @@ def manage_uc_sharing(
                 partition_spec=partition_spec,
             )
         elif act == "remove_table":
-            return _remove_table_from_share(
-                share_name=name or share_name, table_name=table_name
-            )
+            return _remove_table_from_share(share_name=name or share_name, table_name=table_name)
         elif act == "grant_to_recipient":
-            return _grant_share_to_recipient(
-                share_name=name or share_name, recipient_name=recipient_name
-            )
+            return _grant_share_to_recipient(share_name=name or share_name, recipient_name=recipient_name)
         elif act == "revoke_from_recipient":
-            return _revoke_share_from_recipient(
-                share_name=name or share_name, recipient_name=recipient_name
-            )
+            return _revoke_share_from_recipient(share_name=name or share_name, recipient_name=recipient_name)
 
     elif rtype == "recipient":
         if act == "create":

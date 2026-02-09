@@ -49,9 +49,7 @@ def _write_manifest(data: Dict[str, Any]) -> None:
     path = _get_manifest_path()
     try:
         # Write to a temp file in the same directory, then rename
-        fd, tmp_path = tempfile.mkstemp(
-            dir=path.parent, prefix=".manifest-tmp-", suffix=".json"
-        )
+        fd, tmp_path = tempfile.mkstemp(dir=path.parent, prefix=".manifest-tmp-", suffix=".json")
         try:
             with os.fdopen(fd, "w") as f:
                 json.dump(data, f, indent=2)
@@ -140,18 +138,14 @@ def remove_resource(resource_type: str, resource_id: str) -> bool:
         resources = data.get("resources", [])
         original_count = len(resources)
         data["resources"] = [
-            r
-            for r in resources
-            if not (r.get("type") == resource_type and r.get("id") == resource_id)
+            r for r in resources if not (r.get("type") == resource_type and r.get("id") == resource_id)
         ]
         if len(data["resources"]) < original_count:
             _write_manifest(data)
             return True
         return False
     except Exception as exc:
-        logger.warning(
-            "Failed to remove resource %s/%s: %s", resource_type, resource_id, exc
-        )
+        logger.warning("Failed to remove resource %s/%s: %s", resource_type, resource_id, exc)
         return False
 
 

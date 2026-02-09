@@ -109,9 +109,7 @@ def create_or_update_genie(
     if warehouse_id is None:
         warehouse_id = manager.get_best_warehouse_id()
         if warehouse_id is None:
-            return {
-                "error": "No SQL warehouses available. Please provide a warehouse_id or create a warehouse."
-            }
+            return {"error": "No SQL warehouses available. Please provide a warehouse_id or create a warehouse."}
 
     operation = "created"
 
@@ -210,13 +208,8 @@ def get_genie(space_id: str) -> Dict[str, Any]:
         return {"error": f"Genie space {space_id} not found"}
 
     # Get sample questions
-    questions_response = manager.genie_list_questions(
-        space_id, question_type="SAMPLE_QUESTION"
-    )
-    sample_questions = [
-        q.get("question_text", "")
-        for q in questions_response.get("curated_questions", [])
-    ]
+    questions_response = manager.genie_list_questions(space_id, question_type="SAMPLE_QUESTION")
+    sample_questions = [q.get("question_text", "") for q in questions_response.get("curated_questions", [])]
 
     return {
         "space_id": result.get("space_id", space_id),
@@ -372,9 +365,7 @@ def ask_genie_followup(
 # ============================================================================
 
 
-def _format_genie_response(
-    question: str, genie_message: Any, space_id: str
-) -> Dict[str, Any]:
+def _format_genie_response(question: str, genie_message: Any, space_id: str) -> Dict[str, Any]:
     """Format a Genie SDK response into a clean dictionary.
 
     Args:
@@ -386,9 +377,7 @@ def _format_genie_response(
         "question": question,
         "conversation_id": genie_message.conversation_id,
         "message_id": genie_message.id,
-        "status": str(genie_message.status.value)
-        if genie_message.status
-        else "UNKNOWN",
+        "status": str(genie_message.status.value) if genie_message.status else "UNKNOWN",
     }
 
     # Extract data from attachments
@@ -401,9 +390,7 @@ def _format_genie_response(
 
                 # Get row count from metadata
                 if attachment.query.query_result_metadata:
-                    result["row_count"] = (
-                        attachment.query.query_result_metadata.row_count
-                    )
+                    result["row_count"] = attachment.query.query_result_metadata.row_count
 
                 # Fetch actual data (columns and rows)
                 if attachment.attachment_id:
@@ -418,14 +405,8 @@ def _format_genie_response(
                         if data_result.statement_response:
                             sr = data_result.statement_response
                             # Get columns
-                            if (
-                                sr.manifest
-                                and sr.manifest.schema
-                                and sr.manifest.schema.columns
-                            ):
-                                result["columns"] = [
-                                    c.name for c in sr.manifest.schema.columns
-                                ]
+                            if sr.manifest and sr.manifest.schema and sr.manifest.schema.columns:
+                                result["columns"] = [c.name for c in sr.manifest.schema.columns]
                             # Get data
                             if sr.result and sr.result.data_array:
                                 result["data"] = sr.result.data_array
