@@ -872,9 +872,35 @@ test_cases:
       - Pipeline code should be in `src/pipelines/data_pipeline/transformations/` directory
     execution_success: true
   expectations:
-    expected_facts: []
-    expected_patterns: []
-    guidelines: []
+    expected_facts:
+    - 'Uses serverless: true for serverless compute'
+    - Uses glob pattern with root_path for pipeline libraries
+    - Parameterizes catalog and schema for multi-environment
+    - 'Sets development: true for dev target'
+    expected_patterns:
+    - pattern: 'pipelines:'
+      min_count: 1
+      description: Defines pipelines resource
+    - pattern: 'serverless:\s*true'
+      min_count: 1
+      description: Enables serverless compute
+    - pattern: 'catalog:'
+      min_count: 2
+      description: Configures catalog
+    - pattern: 'target:'
+      min_count: 1
+      description: Configures target schema
+    - pattern: 'libraries:'
+      min_count: 1
+      description: Defines pipeline libraries
+    - pattern: 'new_cluster:'
+      max_count: 0
+      min_count: 0
+      description: No cluster config for serverless
+    guidelines:
+    - 'Must use serverless: true for serverless compute'
+    - Must use glob pattern for pipeline libraries
+    - Must parameterize catalog and schema using variables
   metadata:
     category: happy_path
     source: interactive
@@ -969,9 +995,35 @@ test_cases:
       - Uses `${workspace.current_user.userName}` to notify the bundle deployer
     execution_success: true
   expectations:
-    expected_facts: []
-    expected_patterns: []
-    guidelines: []
+    expected_facts:
+    - Uses Alert v2 API with evaluation (not condition)
+    - Defines comparison_operator as uppercase string
+    - Configures schedule with pause_status, quartz_cron_schedule, timezone_id
+    - Uses source to define column name from query result
+    expected_patterns:
+    - pattern: 'alerts:'
+      min_count: 1
+      description: Defines alerts resource
+    - pattern: 'evaluation:'
+      min_count: 1
+      description: Uses Alert v2 evaluation syntax
+    - pattern: 'comparison_operator:'
+      min_count: 1
+      description: Defines comparison operator
+    - pattern: 'schedule:'
+      min_count: 1
+      description: Configures alert schedule
+    - pattern: 'query_text:'
+      min_count: 1
+      description: Defines SQL query
+    - pattern: 'condition:'
+      max_count: 0
+      min_count: 0
+      description: Does not use deprecated condition syntax
+    guidelines:
+    - Must use Alert v2 API with evaluation (not deprecated condition)
+    - Must use uppercase comparison_operator (LESS_THAN, GREATER_THAN, etc.)
+    - Must configure schedule with all required fields
   metadata:
     category: happy_path
     source: interactive
@@ -1048,9 +1100,34 @@ test_cases:
       - Permission level `CAN_RUN` allows users to view and refresh the dashboard
     execution_success: true
   expectations:
-    expected_facts: []
-    expected_patterns: []
-    guidelines: []
+    expected_facts:
+    - Uses dataset_catalog and dataset_schema parameters
+    - Parameterizes catalog and schema using variables
+    - Uses relative path ../src/ in resources yml
+    - References .lvdash.json dashboard file
+    expected_patterns:
+    - pattern: 'dashboards:'
+      min_count: 1
+      description: Defines dashboards resource
+    - pattern: 'dataset_catalog:'
+      min_count: 1
+      description: Sets default catalog for dashboard
+    - pattern: 'dataset_schema:'
+      min_count: 1
+      description: Sets default schema for dashboard
+    - pattern: 'file_path:'
+      min_count: 1
+      description: References dashboard file
+    - pattern: '\.lvdash\.json'
+      min_count: 1
+      description: Uses correct dashboard file extension
+    - pattern: \.\./src/
+      min_count: 1
+      description: Uses correct relative path
+    guidelines:
+    - Must use dataset_catalog and dataset_schema for default catalog/schema
+    - Must parameterize catalog and schema using variables
+    - Must use relative path ../src/ in resources/*.yml
   metadata:
     category: happy_path
     source: interactive

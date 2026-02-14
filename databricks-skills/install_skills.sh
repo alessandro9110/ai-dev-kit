@@ -56,7 +56,7 @@ get_skill_description() {
         # Databricks skills
         "databricks-agent-bricks") echo "Knowledge Assistants, Genie Spaces, Supervisor Agents" ;;
         "databricks-aibi-dashboards") echo "Databricks AI/BI Dashboards - create and manage dashboards" ;;
-        "databricks-databricks-asset-bundles") echo "Databricks Asset Bundles - deployment and configuration" ;;
+        "databricks-asset-bundles") echo "Databricks Asset Bundles - deployment and configuration" ;;
         "databricks-app-apx") echo "Databricks Apps with React/Next.js (APX framework)" ;;
         "databricks-app-python") echo "Databricks Apps with Python (Dash, Streamlit)" ;;
         "databricks-config") echo "Profile authentication setup for Databricks" ;;
@@ -95,7 +95,7 @@ get_skill_extra_files() {
         "databricks-agent-bricks") echo "1-knowledge-assistants.md 2-supervisor-agents.md" ;;
         "databricks-aibi-dashboards") echo "widget-reference.md sql-patterns.md" ;;
         "databricks-genie") echo "spaces.md conversation.md" ;;
-        "databricks-databricks-asset-bundles") echo "alerts_guidance.md SDP_guidance.md" ;;
+        "databricks-asset-bundles") echo "alerts_guidance.md SDP_guidance.md" ;;
         "databricks-app-apx") echo "backend-patterns.md best-practices.md frontend-patterns.md" ;;
         "databricks-app-python") echo "dash.md streamlit.md README.md" ;;
         "databricks-jobs") echo "task-types.md triggers-schedules.md notifications-monitoring.md examples.md" ;;
