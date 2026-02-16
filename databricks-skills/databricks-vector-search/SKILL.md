@@ -1,5 +1,5 @@
 ---
-name: vector-search
+name: databricks-vector-search
 description: "Patterns for Databricks Vector Search: create endpoints and indexes, query with filters, manage embeddings. Use when building RAG applications, semantic search, or similarity matching. Covers both storage-optimized and standard endpoints."
 ---
 
