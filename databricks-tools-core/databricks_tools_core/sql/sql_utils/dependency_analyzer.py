@@ -58,8 +58,8 @@ class SQLDependencyAnalyzer:
 
         queries: List[str] = []
         # Split by semicolons first to preserve original SQL
-        raw_statements = [s.strip() for s in cleaned.split(';') if s.strip()]
-        
+        raw_statements = [s.strip() for s in cleaned.split(";") if s.strip()]
+
         for raw_sql in raw_statements:
             # Parse to validate and analyze dependencies, but keep original SQL
             # to preserve formatting like backticks that sqlglot might modify
